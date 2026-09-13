@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useRef } from 'react';
+import Image from 'next/image';
 import { X, Upload, Image as ImageIcon, Save, Trash2 } from 'lucide-react';
 
 interface ImageUploadModalProps {
@@ -14,7 +15,7 @@ const ImageUploadModal: React.FC<ImageUploadModalProps> = ({
   isOpen,
   onClose,
   currentImageUrl,
-  onImageUpload
+  onImageUpload,
 }) => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -26,13 +27,11 @@ const ImageUploadModal: React.FC<ImageUploadModalProps> = ({
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      // Validate file type
       if (!file.type.startsWith('image/')) {
         setError('Please select a valid image file');
         return;
       }
 
-      // Validate file size (max 5MB)
       if (file.size > 5 * 1024 * 1024) {
         setError('Image size must be less than 5MB');
         return;
@@ -41,7 +40,6 @@ const ImageUploadModal: React.FC<ImageUploadModalProps> = ({
       setSelectedFile(file);
       setError(null);
 
-      // Create preview
       const reader = new FileReader();
       reader.onload = (e) => {
         setPreviewUrl(e.target?.result as string);
@@ -61,23 +59,20 @@ const ImageUploadModal: React.FC<ImageUploadModalProps> = ({
     setSuccess(null);
 
     try {
-      // For now, we'll use a mock upload to Cloudinary
-      // In a real implementation, you would upload to your server or directly to Cloudinary
       const mockImageUrl = `https://res.cloudinary.com/storagemanagementcontainer/image/upload/v1751747169/uploaded-${Date.now()}.jpg`;
-      
+
       await onImageUpload(mockImageUrl);
       setSuccess('Image uploaded successfully! 🎉');
-      
+
       setTimeout(() => {
         onClose();
-        // Reset state
         setSelectedFile(null);
         setPreviewUrl(null);
         setSuccess(null);
       }, 2000);
-    } catch (error) {
+    } catch (err) {
       setError('Failed to upload image. Please try again.');
-      console.error('Image upload error:', error);
+      console.error('Image upload error:', err);
     } finally {
       setIsLoading(false);
     }
@@ -95,7 +90,6 @@ const ImageUploadModal: React.FC<ImageUploadModalProps> = ({
   const handleClose = () => {
     if (!isLoading) {
       onClose();
-      // Reset state
       setSelectedFile(null);
       setPreviewUrl(null);
       setError(null);
@@ -131,8 +125,18 @@ const ImageUploadModal: React.FC<ImageUploadModalProps> = ({
           {error && (
             <div className="bg-red-100 border-2 border-red-500 rounded-none p-3">
               <div className="flex items-center">
-                <svg className="w-5 h-5 text-red-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <svg
+                  className="w-5 h-5 text-red-600 mr-2"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
                 </svg>
                 <p className="text-red-800 text-sm font-medium">{error}</p>
               </div>
@@ -143,8 +147,18 @@ const ImageUploadModal: React.FC<ImageUploadModalProps> = ({
           {success && (
             <div className="bg-green-100 border-2 border-green-500 rounded-none p-3">
               <div className="flex items-center">
-                <svg className="w-5 h-5 text-green-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <svg
+                  className="w-5 h-5 text-green-600 mr-2"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
                 </svg>
                 <p className="text-green-800 text-sm font-medium">{success}</p>
               </div>
@@ -155,10 +169,12 @@ const ImageUploadModal: React.FC<ImageUploadModalProps> = ({
           {currentImageUrl && (
             <div className="text-center">
               <p className="text-sm font-bold text-black mb-2">Current Image:</p>
-              <img 
-                src={currentImageUrl} 
-                alt="Current profile" 
-                className="w-20 h-20 rounded-full border-4 border-black mx-auto"
+              <Image
+                src={currentImageUrl}
+                alt="Current profile"
+                width={80}
+                height={80}
+                className="rounded-full border-4 border-black mx-auto"
               />
             </div>
           )}
@@ -173,7 +189,7 @@ const ImageUploadModal: React.FC<ImageUploadModalProps> = ({
               className="hidden"
               disabled={isLoading}
             />
-            
+
             {!previewUrl ? (
               <div className="space-y-3">
                 <Upload size={48} className="mx-auto text-purple-600" />
@@ -195,9 +211,12 @@ const ImageUploadModal: React.FC<ImageUploadModalProps> = ({
               </div>
             ) : (
               <div className="space-y-3">
-                <img 
-                  src={previewUrl} 
-                  alt="Preview" 
+                {/* Preview uses a data: URL from FileReader — use plain <img>
+                    because next/image cannot optimize data URLs. */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={previewUrl}
+                  alt="Preview"
                   className="w-32 h-32 rounded-full border-4 border-black mx-auto object-cover"
                 />
                 <div>
@@ -205,7 +224,10 @@ const ImageUploadModal: React.FC<ImageUploadModalProps> = ({
                     {selectedFile?.name}
                   </p>
                   <p className="text-xs text-purple-600">
-                    {selectedFile?.size ? (selectedFile.size / 1024 / 1024).toFixed(2) : '0'} MB
+                    {selectedFile?.size
+                      ? (selectedFile.size / 1024 / 1024).toFixed(2)
+                      : '0'}{' '}
+                    MB
                   </p>
                 </div>
                 <div className="flex gap-2 justify-center">
@@ -255,4 +277,4 @@ const ImageUploadModal: React.FC<ImageUploadModalProps> = ({
   );
 };
 
-export default ImageUploadModal; 
+export default ImageUploadModal;
