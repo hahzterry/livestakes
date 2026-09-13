@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import Image from 'next/image';
 import { usePrivy } from '@privy-io/react-auth';
 import {
   getMarketInfo,
@@ -13,11 +14,6 @@ import {
   MarketInfo,
   UserBets,
   MarketOdds,
-  LivestreamBet,
-  connectWallet,
-  isWalletAvailable,
-  getNetworkInfo,
-  isContractDeployed
 } from '../lib/contractsApi';
 import type { MarketDataType } from '../../types/types';
 
@@ -41,156 +37,150 @@ const BettingModal: React.FC<BettingModalProps> = ({
   market,
 }) => {
   const { ready, authenticated, user } = usePrivy();
-  
+
   // Market state
   const [selectedMarketId, setSelectedMarketId] = useState<number | null>(null);
   const [marketInfo, setMarketInfo] = useState<MarketInfo | null>(null);
   const [userBets, setUserBets] = useState<UserBets>({ livestreamIds: [], amounts: [] });
   const [marketOdds, setMarketOdds] = useState<MarketOdds>({ livestreamBets: [] });
-  
+
   // Betting state
-  const [selectedLivestreamId, setSelectedLivestreamId] = useState<number | null>(null);
   const [betAmount, setBetAmount] = useState<string>('0.1');
-  const [sliderValue, setSliderValue] = useState<number>(10); // 10 = 0.1 FLOW
+  const [sliderValue, setSliderValue] = useState<number>(10);
   const [isPlacingBet, setIsPlacingBet] = useState(false);
   const [isClaiming, setIsClaiming] = useState(false);
-  
+
   // Market creation state
   const [showCreateMarket, setShowCreateMarket] = useState(false);
   const [newMarketQuestion, setNewMarketQuestion] = useState('');
   const [isCreatingMarket, setIsCreatingMarket] = useState(false);
-  
+
   // UI state
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  // Load markets when modal opens
-  useEffect(() => {
-    if (isOpen) {
-      loadMarkets();
-    }
-  }, [isOpen, livestreamId, market]);
-
-  const loadMarkets = async () => {
+  // ---------------------------------------------------------------
+  // loadMarkets
+  // ---------------------------------------------------------------
+  const loadMarkets = useCallback(async () => {
     try {
       console.log(`🔍 BettingModal: Loading markets for livestream ${livestreamId}...`);
       console.log(`📊 Markets data:`, market);
-      
-      // Always set the current livestream as selected for betting
-      setSelectedLivestreamId(livestreamId);
-      
+
       if (market && market.contract_address) {
         console.log(`✅ Found market ${market.contract_address}`);
         setSelectedMarketId(market.id);
         setShowCreateMarket(false);
       } else {
         console.log(`⚠️ No market found for livestream ${livestreamId}, showing create market interface`);
-        // Set a default market question for hackathon projects
         setNewMarketQuestion(`Which hackathon project will win?`);
         setShowCreateMarket(true);
       }
-    } catch (error) {
-      console.error('Error loading markets:', error);
+    } catch (err) {
+      console.error('Error loading markets:', err);
       setError('Failed to load markets');
     }
-  };
+  }, [livestreamId, market]);
 
-  // Load market info when market selection changes
-  useEffect(() => {
-    if (selectedMarketId && isOpen) {
-      loadMarketInfo();
-    }
-  }, [selectedMarketId, isOpen]);
-
-  const loadMarketInfo = async () => {
+  // ---------------------------------------------------------------
+  // loadMarketInfo
+  // ---------------------------------------------------------------
+  const loadMarketInfo = useCallback(async () => {
     if (!selectedMarketId) return;
-    
+
     try {
       setIsLoading(true);
       setError(null);
       console.log(`📊 Loading market info for market ${selectedMarketId}...`);
-      
-      // First, check if we have backend data for this market
+
       const marketData = market && market.id === selectedMarketId ? market : null;
-      
+
       if (marketData && marketData.state !== undefined) {
-        // Use backend data
         console.log(`✅ Using backend market data for market ${selectedMarketId}`);
         setMarketInfo({
-          livestreamIds: [livestreamId], // Current livestream
+          livestreamIds: [livestreamId],
           question: marketData.question || `Which hackathon project will win?`,
           livestreamTitles: [livestreamTitle],
           state: marketData.state as MarketState,
-          winningLivestreamId: 0, // Default to 0 if not resolved
+          winningLivestreamId: 0,
           totalPool: marketData.total_pool || '0',
           totalBettors: 0,
           createdAt: marketData.created_at ? new Date(marketData.created_at).getTime() : Date.now(),
           closedAt: 0,
-          resolvedAt: marketData.state === 2 ? Date.now() : 0
+          resolvedAt: marketData.state === 2 ? Date.now() : 0,
         });
-        
-        // Set default odds (empty for now)
-        setMarketOdds({
-          livestreamBets: []
-        });
+
+        setMarketOdds({ livestreamBets: [] });
       } else {
-        // Fallback to on-chain data
         console.log(`📡 Fetching on-chain data for market ${selectedMarketId}...`);
         const [info, odds] = await Promise.all([
           getMarketInfo(selectedMarketId.toString()),
-          getMarketOdds(selectedMarketId.toString())
+          getMarketOdds(selectedMarketId.toString()),
         ]);
-        
         setMarketInfo(info);
         setMarketOdds(odds);
       }
-      
-      // Always try to load user bets from blockchain
+
       if (authenticated && user?.wallet?.address) {
         try {
           const bets = await getUserBets(selectedMarketId.toString(), user.wallet.address);
           setUserBets(bets);
-        } catch (error) {
-          console.warn('Could not load user bets:', error);
+        } catch (err) {
+          console.warn('Could not load user bets:', err);
           setUserBets({ livestreamIds: [], amounts: [] });
         }
       }
-    } catch (error) {
-      console.error('Error loading market info:', error);
+    } catch (err) {
+      console.error('Error loading market info:', err);
       setError('Failed to load market information');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [selectedMarketId, market, livestreamId, livestreamTitle, authenticated, user?.wallet?.address]);
 
-  // Convert slider value to FLOW amount
+  // ---------------------------------------------------------------
+  // Effects
+  // ---------------------------------------------------------------
+  useEffect(() => {
+    if (isOpen) {
+      // Always set the current livestream as selected for betting
+      setSelectedMarketId(null); // reset before loading so loadMarketInfo doesn't fire with stale id
+      loadMarkets();
+    }
+  }, [isOpen, livestreamId, loadMarkets]);
+
+  useEffect(() => {
+    if (selectedMarketId && isOpen) {
+      loadMarketInfo();
+    }
+  }, [selectedMarketId, isOpen, loadMarketInfo]);
+
+  // ---------------------------------------------------------------
+  // Slider / amount helpers
+  // ---------------------------------------------------------------
   const convertSliderToFlow = (value: number) => {
-    // Slider range: 1-100
-    // FLOW range: 0.01-10.0
-    const flowAmount = (value / 100) * 10; // Max 10 FLOW
-    return Math.max(0.01, flowAmount); // Min 0.01 FLOW
+    const flowAmount = (value / 100) * 10;
+    return Math.max(0.01, flowAmount);
   };
 
-  // Handle slider change
   const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseInt(e.target.value);
     setSliderValue(value);
-    const flowAmount = convertSliderToFlow(value);
-    setBetAmount(flowAmount.toFixed(2));
+    setBetAmount(convertSliderToFlow(value).toFixed(2));
   };
 
-  // Handle direct amount input
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setBetAmount(value);
-    
-    // Update slider to match
     const flowValue = parseFloat(value) || 0;
     const sliderVal = Math.min(100, Math.max(1, (flowValue / 10) * 100));
     setSliderValue(sliderVal);
   };
 
+  // ---------------------------------------------------------------
+  // Actions
+  // ---------------------------------------------------------------
   const handlePlaceBet = async () => {
     if (!selectedMarketId || !authenticated || !user?.wallet?.address || !livestreamId) {
       setError('Please connect your wallet and select a project to bet on');
@@ -203,18 +193,15 @@ const BettingModal: React.FC<BettingModalProps> = ({
       setSuccess(null);
 
       console.log(`🎯 Placing bet: ${betAmount} FLOW on livestream ${livestreamId} in market ${selectedMarketId}`);
-      
-      const txHash = await placeBet(selectedMarketId.toString(), livestreamId, betAmount);
-      
+      await placeBet(selectedMarketId.toString(), livestreamId, betAmount);
+
       setSuccess(`Bet placed successfully! 🎉`);
-      // Refresh market info
       await loadMarketInfo();
-      // Reset bet amount
       setBetAmount('0.1');
       setSliderValue(10);
-    } catch (error) {
-      console.error('Error placing bet:', error);
-      setError(error instanceof Error ? error.message : 'Failed to place bet. Please try again.');
+    } catch (err) {
+      console.error('Error placing bet:', err);
+      setError(err instanceof Error ? err.message : 'Failed to place bet. Please try again.');
     } finally {
       setIsPlacingBet(false);
     }
@@ -232,7 +219,6 @@ const BettingModal: React.FC<BettingModalProps> = ({
       setSuccess(null);
 
       console.log(`🏗️ Creating market: ${newMarketQuestion}`);
-      
       const result = await createMarket(
         newMarketQuestion,
         livestreamTitle,
@@ -242,19 +228,18 @@ const BettingModal: React.FC<BettingModalProps> = ({
         [livestreamId],
         [livestreamTitle]
       );
-      
+
       if (result.success && result.marketAddress) {
         setSuccess(`Market created successfully! 🎉`);
         setSelectedMarketId(Number(result.marketAddress));
         setShowCreateMarket(false);
-        // Refresh market info
         await loadMarketInfo();
       } else {
         setError(result.error || 'Failed to create market');
       }
-    } catch (error) {
-      console.error('Error creating market:', error);
-      setError(error instanceof Error ? error.message : 'Failed to create market. Please try again.');
+    } catch (err) {
+      console.error('Error creating market:', err);
+      setError(err instanceof Error ? err.message : 'Failed to create market. Please try again.');
     } finally {
       setIsCreatingMarket(false);
     }
@@ -272,15 +257,13 @@ const BettingModal: React.FC<BettingModalProps> = ({
       setSuccess(null);
 
       console.log(`💰 Claiming payout from market ${selectedMarketId}`);
-      
-      const txHash = await claimPayout(selectedMarketId.toString());
-      
+      await claimPayout(selectedMarketId.toString());
+
       setSuccess(`Payout claimed successfully! 💰`);
-      // Refresh market info
       await loadMarketInfo();
-    } catch (error) {
-      console.error('Error claiming payout:', error);
-      setError(error instanceof Error ? error.message : 'Failed to claim payout. Please try again.');
+    } catch (err) {
+      console.error('Error claiming payout:', err);
+      setError(err instanceof Error ? err.message : 'Failed to claim payout. Please try again.');
     } finally {
       setIsClaiming(false);
     }
@@ -288,6 +271,9 @@ const BettingModal: React.FC<BettingModalProps> = ({
 
   if (!isOpen) return null;
 
+  // ---------------------------------------------------------------
+  // Render
+  // ---------------------------------------------------------------
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-md sm:max-w-lg max-h-[90vh] overflow-y-auto">
@@ -295,10 +281,7 @@ const BettingModal: React.FC<BettingModalProps> = ({
         <div className="border-b border-gray-200 px-4 sm:px-6 py-4">
           <div className="flex items-center justify-between">
             <h2 className="text-base sm:text-lg font-semibold text-gray-900">🎯 Place Your Bet</h2>
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 transition-colors"
-            >
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
               <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
@@ -309,7 +292,6 @@ const BettingModal: React.FC<BettingModalProps> = ({
 
         {/* Content */}
         <div className="px-4 sm:px-6 py-4 space-y-4">
-          {/* Error Message */}
           {error && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-3">
               <div className="flex items-center">
@@ -321,7 +303,6 @@ const BettingModal: React.FC<BettingModalProps> = ({
             </div>
           )}
 
-          {/* Success Message */}
           {success && (
             <div className="bg-green-50 border border-green-200 rounded-lg p-3">
               <div className="flex items-center">
@@ -333,7 +314,6 @@ const BettingModal: React.FC<BettingModalProps> = ({
             </div>
           )}
 
-          {/* Loading State */}
           {isLoading && (
             <div className="text-center py-4">
               <div className="w-8 h-8 border-4 border-purple-400 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
@@ -341,7 +321,6 @@ const BettingModal: React.FC<BettingModalProps> = ({
             </div>
           )}
 
-          {/* Market selection dropdown */}
           {markets && markets.length > 0 && (
             <div className="mb-4">
               <label htmlFor="market-select" className="block text-xs font-semibold mb-1">Select Market</label>
@@ -349,17 +328,16 @@ const BettingModal: React.FC<BettingModalProps> = ({
                 id="market-select"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-xs sm:text-sm bg-white text-gray-900 placeholder-gray-400"
                 value={selectedMarketId ?? ''}
-                onChange={e => setSelectedMarketId(Number(e.target.value))}
+                onChange={(e) => setSelectedMarketId(Number(e.target.value))}
               >
                 <option value="" disabled>Select a market...</option>
-                {markets.map(market => (
-                  <option key={market.id} value={market.id}>{market.title}</option>
+                {markets.map((m) => (
+                  <option key={m.id} value={m.id}>{m.title}</option>
                 ))}
               </select>
             </div>
           )}
 
-          {/* Market Creation Form */}
           {showCreateMarket && !isLoading && (
             <div className="space-y-4">
               <div>
@@ -374,7 +352,7 @@ const BettingModal: React.FC<BettingModalProps> = ({
                   placeholder="e.g., Which hackathon project will win?"
                 />
               </div>
-              
+
               <button
                 onClick={handleCreateMarket}
                 disabled={isCreatingMarket || !newMarketQuestion.trim() || !authenticated}
@@ -397,10 +375,8 @@ const BettingModal: React.FC<BettingModalProps> = ({
             </div>
           )}
 
-          {/* Betting Interface */}
           {!showCreateMarket && !isLoading && marketInfo && (
             <div className="space-y-4">
-              {/* Market Info */}
               <div className="bg-gray-50 rounded-lg p-3">
                 <h3 className="text-xs sm:text-sm font-semibold text-gray-900 mb-2">{marketInfo.question}</h3>
                 <div className="flex flex-wrap gap-2 text-xs">
@@ -410,17 +386,20 @@ const BettingModal: React.FC<BettingModalProps> = ({
                   <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded">
                     Bettors: {marketInfo.totalBettors}
                   </span>
-                  <span className={`px-2 py-1 rounded ${
-                    marketInfo.state === 0 ? 'bg-yellow-100 text-yellow-700' :
-                    marketInfo.state === 1 ? 'bg-red-100 text-red-700' :
-                    'bg-green-100 text-green-700'
-                  }`}>
+                  <span
+                    className={`px-2 py-1 rounded ${
+                      marketInfo.state === 0
+                        ? 'bg-yellow-100 text-yellow-700'
+                        : marketInfo.state === 1
+                        ? 'bg-red-100 text-red-700'
+                        : 'bg-green-100 text-green-700'
+                    }`}
+                  >
                     {marketInfo.state === 0 ? 'Open' : marketInfo.state === 1 ? 'Closed' : 'Resolved'}
                   </span>
                 </div>
               </div>
 
-              {/* Bet Amount */}
               <div>
                 <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
                   Bet Amount (FLOW)
@@ -453,7 +432,6 @@ const BettingModal: React.FC<BettingModalProps> = ({
                 </div>
               </div>
 
-              {/* Action Buttons */}
               <div className="space-y-2">
                 {marketInfo.state === 0 && (
                   <button
@@ -500,7 +478,6 @@ const BettingModal: React.FC<BettingModalProps> = ({
                 )}
               </div>
 
-              {/* User Bets */}
               {userBets.amounts.length > 0 && (
                 <div className="bg-blue-50 rounded-lg p-3">
                   <h4 className="text-xs sm:text-sm font-semibold text-blue-900 mb-2">Your Bets</h4>
@@ -525,12 +502,16 @@ const BettingModal: React.FC<BettingModalProps> = ({
               rel="noopener noreferrer"
               className="inline-block px-4 py-2 bg-green-600 text-white rounded font-semibold shadow hover:bg-green-700 transition-colors border border-green-700 flex items-center gap-2"
             >
-              <img src="https://cdn.prod.website-files.com/64b8433b6f2d35c03d44ffc0/64ca7d6fe695a4527633da1a_Group%2047467.png" alt="Flow Logo" style={{ height: '20px', width: '20px' }} />
+              <Image
+                src="https://cdn.prod.website-files.com/64b8433b6f2d35c03d44ffc0/64ca7d6fe695a4527633da1a_Group%2047467.png"
+                alt="Flow Logo"
+                width={20}
+                height={20}
+              />
               Get Flow Testnet Tokens
             </a>
           </div>
 
-          {/* Faucet Link for Flow */}
           <div className="mt-4 text-center">
             <a
               href="https://faucet.testnet.onflow.org/"
@@ -542,7 +523,6 @@ const BettingModal: React.FC<BettingModalProps> = ({
             </a>
           </div>
 
-          {/* Wallet Connection Required */}
           {!authenticated && (
             <div className="text-center py-4">
               <div className="text-4xl mb-2">🔒</div>
@@ -558,4 +538,4 @@ const BettingModal: React.FC<BettingModalProps> = ({
   );
 };
 
-export default BettingModal; 
+export default BettingModal;
