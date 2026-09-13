@@ -1,8 +1,8 @@
 "use client";
 import React, { useState, useRef, useEffect } from "react";
+import Image from "next/image";
 import {
   Send,
-  User,
   MessageCircle,
   MoreVertical,
   Smile,
@@ -25,12 +25,13 @@ interface ChatProps {
   currentUserAvatar?: string;
 }
 
-const DEFAULT_AVATAR = "https://res.cloudinary.com/storagemanagementcontainer/image/upload/v1751747169/default-avatar_ynttwb.png";
+const DEFAULT_AVATAR =
+  "https://res.cloudinary.com/storagemanagementcontainer/image/upload/v1751747169/default-avatar_ynttwb.png";
 
-const Chat: React.FC<ChatProps> = ({ 
+const Chat: React.FC<ChatProps> = ({
   messages = [],
   currentUser = "PixelTrader",
-  currentUserAvatar = DEFAULT_AVATAR
+  currentUserAvatar = DEFAULT_AVATAR,
 }) => {
   const [newMessage, setNewMessage] = useState("");
   const [chatMessages, setChatMessages] = useState<Message[]>([
@@ -89,7 +90,8 @@ const Chat: React.FC<ChatProps> = ({
 
   const scrollToBottom = () => {
     if (messagesContainerRef.current) {
-      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+      messagesContainerRef.current.scrollTop =
+        messagesContainerRef.current.scrollHeight;
     }
   };
 
@@ -104,7 +106,10 @@ const Chat: React.FC<ChatProps> = ({
         user: currentUser,
         avatar: currentUserAvatar,
         message: newMessage,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        timestamp: new Date().toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
         isOwn: true,
       };
       setChatMessages([...chatMessages, message]);
@@ -113,7 +118,7 @@ const Chat: React.FC<ChatProps> = ({
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSendMessage();
     }
@@ -127,7 +132,9 @@ const Chat: React.FC<ChatProps> = ({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <MessageCircle size={24} className="text-gold" />
-              <h1 className="text-2xl font-bold text-cream">LiveStakes Chat</h1>
+              <h1 className="text-2xl font-bold text-cream">
+                LiveStakes Chat
+              </h1>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-cream text-sm">Online: 1,234</span>
@@ -141,20 +148,31 @@ const Chat: React.FC<ChatProps> = ({
         {/* Chat Container */}
         <div className="bg-periwinkle border-4 border-black h-[600px] flex flex-col">
           {/* Messages Area */}
-          <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 space-y-4">
+          <div
+            ref={messagesContainerRef}
+            className="flex-1 overflow-y-auto p-4 space-y-4"
+          >
             {chatMessages.map((message) => (
               <div
                 key={message.id}
-                className={`flex gap-3 ${message.isOwn ? 'justify-end' : 'justify-start'}`}
+                className={`flex gap-3 ${
+                  message.isOwn ? "justify-end" : "justify-start"
+                }`}
               >
                 {!message.isOwn && (
-                  <img
+                  <Image
                     src={message.avatar || DEFAULT_AVATAR}
                     alt={message.user}
-                    className="w-8 h-8 rounded-full border-2 border-black flex-shrink-0"
+                    width={32}
+                    height={32}
+                    className="rounded-full border-2 border-black flex-shrink-0"
                   />
                 )}
-                <div className={`max-w-[70%] ${message.isOwn ? 'order-first' : ''}`}>
+                <div
+                  className={`max-w-[70%] ${
+                    message.isOwn ? "order-first" : ""
+                  }`}
+                >
                   {!message.isOwn && (
                     <div className="text-xs text-butter mb-1">
                       {message.user}
@@ -163,8 +181,8 @@ const Chat: React.FC<ChatProps> = ({
                   <div
                     className={`p-3 rounded-lg border-2 border-black ${
                       message.isOwn
-                        ? 'bg-gold text-black'
-                        : 'bg-lavender text-plum'
+                        ? "bg-gold text-black"
+                        : "bg-lavender text-plum"
                     }`}
                   >
                     <p className="text-sm">{message.message}</p>
@@ -174,10 +192,12 @@ const Chat: React.FC<ChatProps> = ({
                   </div>
                 </div>
                 {message.isOwn && (
-                  <img
+                  <Image
                     src={message.avatar || DEFAULT_AVATAR}
                     alt={message.user}
-                    className="w-8 h-8 rounded-full border-2 border-black flex-shrink-0"
+                    width={32}
+                    height={32}
+                    className="rounded-full border-2 border-black flex-shrink-0"
                   />
                 )}
               </div>
@@ -241,4 +261,4 @@ const Chat: React.FC<ChatProps> = ({
   );
 };
 
-export default Chat; 
+export default Chat;
