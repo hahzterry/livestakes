@@ -6,7 +6,6 @@ const nextConfig = {
   output: 'standalone',
   images: {
     unoptimized: process.env.NODE_ENV === 'development',
-    domains: ['localhost'],
     remotePatterns: [
       {
         protocol: 'http',
@@ -22,14 +21,14 @@ const nextConfig = {
   basePath: '',
   // Add asset prefix for Docker environment
   assetPrefix: process.env.NEXT_PUBLIC_ASSET_PREFIX || '',
-  
+
   // Increase request body size limit for proxying socket.io requests
   experimental: {
     serverActions: {
       bodySizeLimit: '2mb',
     },
   },
-  
+
   // Optimize for API routes
   rewrites: async () => {
     return [
@@ -37,13 +36,15 @@ const nextConfig = {
       // This can be useful when developing locally with two separate servers
       {
         source: '/api/:path*',
-        destination: process.env.NODE_ENV === 'development' && process.env.DIRECT_API_PROXY === 'true' 
-          ? '/api/:path*' 
-          : '/api/:path*',
+        destination:
+          process.env.NODE_ENV === 'development' &&
+          process.env.DIRECT_API_PROXY === 'true'
+            ? '/api/:path*'
+            : '/api/:path*',
       },
     ];
   },
-  
+
   // Ensure service worker is properly served
   headers: async () => {
     return [
@@ -77,4 +78,4 @@ const nextConfig = {
   },
 };
 
-module.exports = nextConfig; 
+module.exports = nextConfig;
