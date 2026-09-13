@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { usePrivy } from '@privy-io/react-auth';
-import { 
+import {
   associateMarketWithLivestream,
   getMarketInfo,
-  getNetworkInfo 
+  getNetworkInfo,
 } from '../lib/contractsApi';
 
 interface MarketAssociationModalProps {
@@ -30,7 +30,7 @@ const MarketAssociationModal: React.FC<MarketAssociationModalProps> = ({
   onClose,
   livestreamId,
   livestreamTitle,
-  onMarketAssociated
+  onMarketAssociated,
 }) => {
   const { authenticated } = usePrivy();
   const [isLoading, setIsLoading] = useState(false);
@@ -38,6 +38,30 @@ const MarketAssociationModal: React.FC<MarketAssociationModalProps> = ({
   const [marketAddress, setMarketAddress] = useState<string>('');
   const [marketInfo, setMarketInfo] = useState<MarketInfo | null>(null);
   const [associatedMarkets, setAssociatedMarkets] = useState<string[]>([]);
+
+  // ---------------------------------------------------------------
+  // loadAssociatedMarkets
+  // ---------------------------------------------------------------
+  const loadAssociatedMarkets = useCallback(async () => {
+    try {
+      const API_BASE_URL =
+        process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3334/api';
+      const response = await fetch(
+        `${API_BASE_URL}/markets?livestream_id=${livestreamId}`
+      );
+      const data = await response.json();
+
+      if (data.success) {
+        setAssociatedMarkets(data.market_addresses || []);
+      }
+    } catch (err) {
+      console.error('Error loading associated markets:', err);
+    }
+  }, [livestreamId]);
+
+  // ---------------------------------------------------------------
+  // Effects
+  // ---------------------------------------------------------------
 
   // Lock body scroll when modal is open
   useEffect(() => {
@@ -47,11 +71,11 @@ const MarketAssociationModal: React.FC<MarketAssociationModalProps> = ({
     } else {
       document.body.style.overflow = 'unset';
     }
-    
+
     return () => {
       document.body.style.overflow = 'unset';
     };
-  }, [isOpen]);
+  }, [isOpen, loadAssociatedMarkets]);
 
   // Handle escape key to close modal
   useEffect(() => {
@@ -70,22 +94,10 @@ const MarketAssociationModal: React.FC<MarketAssociationModalProps> = ({
     };
   }, [isOpen, onClose]);
 
-  const loadAssociatedMarkets = async () => {
-    try {
-      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3334/api';
-      const response = await fetch(`${API_BASE_URL}/markets?livestream_id=${livestreamId}`);
-      const data = await response.json();
-      
-      if (data.success) {
-        setAssociatedMarkets(data.market_addresses || []);
-      }
-    } catch (err) {
-      console.error('Error loading associated markets:', err);
-    }
-  };
-
+  // ---------------------------------------------------------------
+  // Helpers
+  // ---------------------------------------------------------------
   const validateMarketAddress = (address: string): boolean => {
-    // Basic ETH address validation
     return /^0x[a-fA-F0-9]{40}$/.test(address);
   };
 
@@ -111,7 +123,7 @@ const MarketAssociationModal: React.FC<MarketAssociationModalProps> = ({
         title: info.livestreamTitles?.[0] || '',
         state: info.state,
         totalPool: info.totalPool,
-        isAssociated: associatedMarkets.includes(marketAddress)
+        isAssociated: associatedMarkets.includes(marketAddress),
       });
     } catch (err) {
       setError('Market not found or invalid address');
@@ -137,12 +149,13 @@ const MarketAssociationModal: React.FC<MarketAssociationModalProps> = ({
 
     try {
       await associateMarketWithLivestream(marketAddress, livestreamId);
-      
+
       // Update local state
-      setAssociatedMarkets(prev => [...prev, marketAddress]);
-      setMarketInfo(prev => prev ? { ...prev, isAssociated: true } : null);
-      
-      // Call callback
+      setAssociatedMarkets((prev) => [...prev, marketAddress]);
+      setMarketInfo((prev) =>
+        prev ? { ...prev, isAssociated: true } : null
+      );
+
       if (onMarketAssociated) {
         onMarketAssociated(marketAddress);
       }
@@ -168,7 +181,7 @@ const MarketAssociationModal: React.FC<MarketAssociationModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div 
+    <div
       className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4"
       onClick={(e) => {
         if (e.target === e.currentTarget) {
@@ -176,7 +189,7 @@ const MarketAssociationModal: React.FC<MarketAssociationModalProps> = ({
         }
       }}
     >
-      <div 
+      <div
         className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
@@ -211,7 +224,10 @@ const MarketAssociationModal: React.FC<MarketAssociationModalProps> = ({
               </h3>
               <div className="space-y-2">
                 {associatedMarkets.map((address, index) => (
-                  <div key={index} className="text-sm text-green-700 font-mono">
+                  <div
+                    key={index}
+                    className="text-sm text-green-700 font-mono"
+                  >
                     {address}
                   </div>
                 ))}
@@ -229,7 +245,9 @@ const MarketAssociationModal: React.FC<MarketAssociationModalProps> = ({
           {/* Wallet Connection Check */}
           {!authenticated ? (
             <div className="text-center py-8">
-              <p className="text-gray-600 mb-4">Connect your wallet to associate markets</p>
+              <p className="text-gray-600 mb-4">
+                Connect your wallet to associate markets
+              </p>
               <button
                 onClick={onClose}
                 className="bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700 transition-colors"
@@ -261,43 +279,76 @@ const MarketAssociationModal: React.FC<MarketAssociationModalProps> = ({
                   </button>
                 </div>
                 <p className="text-xs text-gray-500 mt-1">
-                  Enter the contract address of the market you want to associate
+                  Enter the contract address of the market you want to
+                  associate
                 </p>
               </div>
 
               {/* Market Info Display */}
               {marketInfo && (
                 <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
-                  <h3 className="font-semibold text-gray-900 mb-3">Market Information</h3>
+                  <h3 className="font-semibold text-gray-900 mb-3">
+                    Market Information
+                  </h3>
                   <div className="space-y-2">
                     <div>
-                      <span className="text-sm font-medium text-gray-600">Question:</span>
-                      <p className="text-sm text-gray-800">{marketInfo.question}</p>
+                      <span className="text-sm font-medium text-gray-600">
+                        Question:
+                      </span>
+                      <p className="text-sm text-gray-800">
+                        {marketInfo.question}
+                      </p>
                     </div>
                     <div>
-                      <span className="text-sm font-medium text-gray-600">Title:</span>
-                      <p className="text-sm text-gray-800">{marketInfo.title}</p>
+                      <span className="text-sm font-medium text-gray-600">
+                        Title:
+                      </span>
+                      <p className="text-sm text-gray-800">
+                        {marketInfo.title}
+                      </p>
                     </div>
                     <div>
-                      <span className="text-sm font-medium text-gray-600">State:</span>
-                      <span className={`text-sm ml-2 px-2 py-1 rounded-full ${
-                        marketInfo.state === 0 ? 'bg-green-100 text-green-800' :
-                        marketInfo.state === 1 ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-red-100 text-red-800'
-                      }`}>
-                        {marketInfo.state === 0 ? 'Open' : marketInfo.state === 1 ? 'Closed' : 'Resolved'}
+                      <span className="text-sm font-medium text-gray-600">
+                        State:
+                      </span>
+                      <span
+                        className={`text-sm ml-2 px-2 py-1 rounded-full ${
+                          marketInfo.state === 0
+                            ? 'bg-green-100 text-green-800'
+                            : marketInfo.state === 1
+                            ? 'bg-yellow-100 text-yellow-800'
+                            : 'bg-red-100 text-red-800'
+                        }`}
+                      >
+                        {marketInfo.state === 0
+                          ? 'Open'
+                          : marketInfo.state === 1
+                          ? 'Closed'
+                          : 'Resolved'}
                       </span>
                     </div>
                     <div>
-                      <span className="text-sm font-medium text-gray-600">Total Pool:</span>
-                      <span className="text-sm text-gray-800 ml-2">{marketInfo.totalPool} ETH</span>
+                      <span className="text-sm font-medium text-gray-600">
+                        Total Pool:
+                      </span>
+                      <span className="text-sm text-gray-800 ml-2">
+                        {marketInfo.totalPool} ETH
+                      </span>
                     </div>
                     <div>
-                      <span className="text-sm font-medium text-gray-600">Association Status:</span>
-                      <span className={`text-sm ml-2 px-2 py-1 rounded-full ${
-                        marketInfo.isAssociated ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                      }`}>
-                        {marketInfo.isAssociated ? 'Already Associated' : 'Not Associated'}
+                      <span className="text-sm font-medium text-gray-600">
+                        Association Status:
+                      </span>
+                      <span
+                        className={`text-sm ml-2 px-2 py-1 rounded-full ${
+                          marketInfo.isAssociated
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-gray-100 text-gray-800'
+                        }`}
+                      >
+                        {marketInfo.isAssociated
+                          ? 'Already Associated'
+                          : 'Not Associated'}
                       </span>
                     </div>
                   </div>
@@ -308,7 +359,9 @@ const MarketAssociationModal: React.FC<MarketAssociationModalProps> = ({
               <div className="flex gap-3 pt-4">
                 <button
                   onClick={handleAssociateMarket}
-                  disabled={isLoading || !marketInfo || marketInfo.isAssociated}
+                  disabled={
+                    isLoading || !marketInfo || marketInfo.isAssociated
+                  }
                   className="flex-1 bg-purple-600 text-white py-3 rounded-lg font-medium hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isLoading ? 'Associating...' : 'Associate Market'}
@@ -334,4 +387,4 @@ const MarketAssociationModal: React.FC<MarketAssociationModalProps> = ({
   );
 };
 
-export default MarketAssociationModal; 
+export default MarketAssociationModal;
