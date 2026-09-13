@@ -1,13 +1,23 @@
-// path: app/layout.tsx  (Next 13/14 App Router)
+// path: app/layout.tsx  (Next 13/14/15 App Router)
 import type { Metadata } from "next";
 import "./globals.css";
 import ClientWrapper from "./components/clientwrapper";
 import Script from "next/script";
-import { Suspense } from "react";
 import PWAProvider from "./components/PWAProvider";
 import SideNav from "./components/SideNav";
 import Header from "./components/Header";
 import Footer from "./components/Footer";
+import { Press_Start_2P } from "next/font/google";
+
+/* ------------------------------------------------------------------ */
+/*  Font                                                              */
+/* ------------------------------------------------------------------ */
+const pressStart2P = Press_Start_2P({
+  weight: "400",
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-press-start",
+});
 
 /* ------------------------------------------------------------------ */
 /*  Global metadata                                                   */
@@ -21,8 +31,10 @@ export const metadata: Metadata = {
   authors: [{ name: "livestakes.fun Team" }],
   icons: {
     icon: "https://res.cloudinary.com/storagemanagementcontainer/image/upload/v1751729735/live-stakes-icon_cfc7t8.png",
-    shortcut: "https://res.cloudinary.com/storagemanagementcontainer/image/upload/v1751729735/live-stakes-icon_cfc7t8.png",
-    apple: "https://res.cloudinary.com/storagemanagementcontainer/image/upload/v1751729735/live-stakes-icon_cfc7t8.png",
+    shortcut:
+      "https://res.cloudinary.com/storagemanagementcontainer/image/upload/v1751729735/live-stakes-icon_cfc7t8.png",
+    apple:
+      "https://res.cloudinary.com/storagemanagementcontainer/image/upload/v1751729735/live-stakes-icon_cfc7t8.png",
   },
   openGraph: {
     title: "livestakes.fun | AI-Powered Livestream Betting",
@@ -43,7 +55,9 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "livestakes.fun | Smart Betting on Live Streams",
     description: "AI-powered betting on livestreams. Watch, predict, earn.",
-    images: ["https://res.cloudinary.com/storagemanagementcontainer/image/upload/v1751729735/live-stakes-icon_cfc7t8.png"],
+    images: [
+      "https://res.cloudinary.com/storagemanagementcontainer/image/upload/v1751729735/live-stakes-icon_cfc7t8.png",
+    ],
   },
   robots: "index, follow",
   manifest: "/manifest.json",
@@ -56,12 +70,12 @@ export const metadata: Metadata = {
   formatDetection: { telephone: false },
 };
 
-export const viewport = { 
+export const viewport = {
   themeColor: "#fcd34d",
-  width: 'device-width',
+  width: "device-width",
   initialScale: 1,
   maximumScale: 5,
-  userScalable: true
+  userScalable: true,
 };
 
 /* ------------------------------------------------------------------ */
@@ -73,25 +87,21 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" className={pressStart2P.variable}>
       <head>
-        {/* Pixel font */}
-        <link
-          href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap"
-          rel="stylesheet"
-        />
-        {/* Favicon */}
-        <link rel="icon" href="https://res.cloudinary.com/storagemanagementcontainer/image/upload/v1751729735/live-stakes-icon_cfc7t8.png" />
-        <link rel="shortcut icon" href="https://res.cloudinary.com/storagemanagementcontainer/image/upload/v1751729735/live-stakes-icon_cfc7t8.png" />
-        {/* PWA / meta */}
+        {/* PWA / meta (kept in <head> for legacy browser support) */}
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta
           name="apple-mobile-web-app-status-bar-style"
           content="black-translucent"
         />
         <meta name="apple-mobile-web-app-title" content="livestakes" />
-        <link rel="apple-touch-icon" href="https://res.cloudinary.com/storagemanagementcontainer/image/upload/v1751729735/live-stakes-icon_cfc7t8.png" />
+        <link
+          rel="apple-touch-icon"
+          href="https://res.cloudinary.com/storagemanagementcontainer/image/upload/v1751729735/live-stakes-icon_cfc7t8.png"
+        />
         <meta name="theme-color" content="#fcd34d" />
+
         {/* Google Analytics */}
         <Script
           strategy="afterInteractive"
@@ -111,17 +121,15 @@ export default function RootLayout({
         />
       </head>
 
-      {/* ---------------------------------------------------------------- */}
-      {/*  Retro background + global typography                            */}
-      {/* ---------------------------------------------------------------- */}
-      <body className="min-h-screen bg-pink-200 text-purple-900" suppressHydrationWarning={true}>
+      <body
+        className={`${pressStart2P.variable} min-h-screen bg-pink-200 text-purple-900`}
+        suppressHydrationWarning={true}
+      >
         <ClientWrapper>
           <Header />
           <div className="flex flex-col lg:flex-row">
             <SideNav />
-            <main className="flex-1 min-h-screen">
-              {children}
-            </main>
+            <main className="flex-1 min-h-screen">{children}</main>
           </div>
           <Footer />
           <PWAProvider />
