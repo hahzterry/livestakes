@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { getMarketInfo, MarketState } from '../lib/contractsApi';
 import type { MarketDataType } from '../../types/types';
 import { FaBullseye } from 'react-icons/fa';
@@ -16,29 +16,26 @@ const BettingIndicator: React.FC<BettingIndicatorProps> = ({ livestreamId, marke
   const [totalPool, setTotalPool] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
 
-  const loadMarketStatus = async () => {
+  const loadMarketStatus = useCallback(async () => {
     try {
       setIsLoading(true);
-      
+
       console.log(`📊 BettingIndicator: Loading status for livestream ${livestreamId} with market:`, market);
-      
+
       if (!market || !market.contract_address) {
         console.log(`No market found for livestream ${livestreamId}`);
         setHasActiveMarket(false);
         setTotalPool(0);
         return;
       }
-      
-      // Always fetch on-chain data for accurate market status
+
       try {
         console.log(`📡 Fetching on-chain data for market ${market.contract_address}`);
         const info = await getMarketInfo(market.contract_address);
-        
         console.log(`📈 Market info:`, info);
-        
-        // Convert BigInt to number for comparison
+
         const stateNumber = Number(info.state);
-        
+
         if (stateNumber === MarketState.Open) {
           setHasActiveMarket(true);
           const poolAmount = parseFloat(info.totalPool) || 0;
@@ -51,15 +48,13 @@ const BettingIndicator: React.FC<BettingIndicatorProps> = ({ livestreamId, marke
         }
       } catch (contractError) {
         console.error(`❌ Could not fetch on-chain data for ${market.contract_address}:`, contractError);
-        
-        // Fallback: try to use backend data if available
+
         if (market.state !== undefined && market.state === 0) {
           console.log(`🔄 Using backend data as fallback`);
           setHasActiveMarket(true);
           const yesAmount = parseFloat(market.yes_bets || '0');
           const noAmount = parseFloat(market.no_bets || '0');
-          const totalPoolAmount = yesAmount + noAmount;
-          setTotalPool(totalPoolAmount);
+          setTotalPool(yesAmount + noAmount);
         } else {
           setHasActiveMarket(false);
           setTotalPool(0);
@@ -72,11 +67,11 @@ const BettingIndicator: React.FC<BettingIndicatorProps> = ({ livestreamId, marke
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [livestreamId, market]);
 
   useEffect(() => {
     loadMarketStatus();
-  }, [livestreamId, market, loadMarketStatus]);
+  }, [loadMarketStatus]);
 
   if (isLoading) {
     return (
@@ -106,4 +101,4 @@ const BettingIndicator: React.FC<BettingIndicatorProps> = ({ livestreamId, marke
   );
 };
 
-export default BettingIndicator; 
+export default BettingIndicator;
