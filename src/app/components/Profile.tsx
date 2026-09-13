@@ -1,5 +1,6 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
+import Image from "next/image";
 import { usePrivy } from '@privy-io/react-auth';
 import {
   Wallet,
@@ -17,8 +18,6 @@ import {
   Eye,
   Calendar,
   Edit3,
-  Heart,
-  MessageCircle,
   Check,
   X as CloseIcon,
 } from "lucide-react";
@@ -46,60 +45,39 @@ interface ProfileProps {
   profileData?: ProfileData;
 }
 
-const DEFAULT_AVATAR = "https://res.cloudinary.com/storagemanagementcontainer/image/upload/v1751747169/default-avatar_ynttwb.png";
-const DEFAULT_LOGO = "https://res.cloudinary.com/storagemanagementcontainer/image/upload/v1751729735/live-stakes-icon_cfc7t8.png";
+const DEFAULT_AVATAR =
+  "https://res.cloudinary.com/storagemanagementcontainer/image/upload/v1751747169/default-avatar_ynttwb.png";
+const DEFAULT_LOGO =
+  "https://res.cloudinary.com/storagemanagementcontainer/image/upload/v1751729735/live-stakes-icon_cfc7t8.png";
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3334';
 
-const Profile: React.FC<ProfileProps> = ({ 
-  profileData = mockProfileData
+const Profile: React.FC<ProfileProps> = ({
+  profileData = mockProfileData,
 }) => {
   const { authenticated, user } = usePrivy();
   const [copied, setCopied] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showImageUploadModal, setShowImageUploadModal] = useState(false);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
   const [editingUsername, setEditingUsername] = useState(false);
   const [usernameInput, setUsernameInput] = useState("");
 
-  // Fetch user profile from database
-  useEffect(() => {
-    if (authenticated && user?.wallet?.address) {
-      fetchUserProfile(user.wallet.address);
-    }
-  }, [authenticated, user?.wallet?.address]);
-
-  const fetchUserProfile = async (walletAddress: string) => {
+  // ---------------------------------------------------------------
+  // createUserProfile
+  // ---------------------------------------------------------------
+  const createUserProfile = useCallback(async (walletAddress: string) => {
     try {
-      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3334';
-      const response = await fetch(`${API_BASE_URL}/api/users/${walletAddress}`);
-      
-      if (response.ok) {
-        const result = await response.json();
-        setUserProfile(result.user);
-      } else {
-        // Create new user profile if not found
-        await createUserProfile(walletAddress);
-      }
-    } catch (error) {
-      console.error('Error fetching user profile:', error);
-    }
-  };
-
-  const createUserProfile = async (walletAddress: string) => {
-    try {
-      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3334';
       const response = await fetch(`${API_BASE_URL}/api/users`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           wallet_address: walletAddress,
           username: `User_${walletAddress.slice(0, 6)}`,
           avatar_url: DEFAULT_AVATAR,
         }),
       });
-      
+
       if (response.ok) {
         const result = await response.json();
         setUserProfile(result.user);
@@ -107,21 +85,51 @@ const Profile: React.FC<ProfileProps> = ({
     } catch (error) {
       console.error('Error creating user profile:', error);
     }
-  };
+  }, []);
 
+  // ---------------------------------------------------------------
+  // fetchUserProfile
+  // ---------------------------------------------------------------
+  const fetchUserProfile = useCallback(async (walletAddress: string) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/users/${walletAddress}`);
+
+      if (response.ok) {
+        const result = await response.json();
+        setUserProfile(result.user);
+      } else {
+        await createUserProfile(walletAddress);
+      }
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+    }
+  }, [createUserProfile]);
+
+  // ---------------------------------------------------------------
+  // Effects
+  // ---------------------------------------------------------------
+  useEffect(() => {
+    if (authenticated && user?.wallet?.address) {
+      fetchUserProfile(user.wallet.address);
+    }
+  }, [authenticated, user?.wallet?.address, fetchUserProfile]);
+
+  // ---------------------------------------------------------------
+  // handleSaveProfile
+  // ---------------------------------------------------------------
   const handleSaveProfile = async (updatedProfile: UserProfile) => {
     if (!user?.wallet?.address) return;
-    
+
     try {
-      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3334';
-      const response = await fetch(`${API_BASE_URL}/api/users/${user.wallet.address}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(updatedProfile),
-      });
-      
+      const response = await fetch(
+        `${API_BASE_URL}/api/users/${user.wallet.address}`,
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updatedProfile),
+        }
+      );
+
       if (response.ok) {
         const result = await response.json();
         setUserProfile(result.user);
@@ -134,22 +142,25 @@ const Profile: React.FC<ProfileProps> = ({
     }
   };
 
+  // ---------------------------------------------------------------
+  // handleImageUpload
+  // ---------------------------------------------------------------
   const handleImageUpload = async (imageUrl: string) => {
     if (!user?.wallet?.address || !userProfile) return;
-    
+
     try {
-      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3334';
-      const response = await fetch(`${API_BASE_URL}/api/users/${user.wallet.address}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          ...userProfile,
-          avatar_url: imageUrl,
-        }),
-      });
-      
+      const response = await fetch(
+        `${API_BASE_URL}/api/users/${user.wallet.address}`,
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ...userProfile,
+            avatar_url: imageUrl,
+          }),
+        }
+      );
+
       if (response.ok) {
         const result = await response.json();
         setUserProfile(result.user);
@@ -162,6 +173,9 @@ const Profile: React.FC<ProfileProps> = ({
     }
   };
 
+  // ---------------------------------------------------------------
+  // Helpers
+  // ---------------------------------------------------------------
   const copyAddress = () => {
     const address = userProfile?.wallet_address || profileData.address;
     navigator.clipboard.writeText(address);
@@ -216,24 +230,28 @@ const Profile: React.FC<ProfileProps> = ({
   };
 
   // Use user profile data if available, otherwise fall back to mock data
-  const displayProfile = userProfile ? {
-    username: userProfile.username || `User_${userProfile.wallet_address.slice(0, 6)}`,
-    address: userProfile.wallet_address,
-    avatar: userProfile.avatar_url || DEFAULT_AVATAR,
-    githubUrl: userProfile.github_url,
-    rank: userProfile.rank || 'Newcomer',
-    rating: userProfile.rating || 0,
-    stats: {
-      totalBets: userProfile.total_bets || 0,
-      winRate: userProfile.win_rate || 0,
-      totalWinnings: userProfile.total_winnings || '0',
-      activeProjects: profileData.stats.activeProjects, // Keep from mock for now
-    },
-    liveStreams: profileData.liveStreams, // Keep from mock for now
-    recentBets: profileData.recentBets, // Keep from mock for now
-    projects: profileData.projects, // Keep from mock for now
-    achievements: profileData.achievements, // Keep from mock for now
-  } : profileData;
+  const displayProfile = userProfile
+    ? {
+        username:
+          userProfile.username ||
+          `User_${userProfile.wallet_address.slice(0, 6)}`,
+        address: userProfile.wallet_address,
+        avatar: userProfile.avatar_url || DEFAULT_AVATAR,
+        githubUrl: userProfile.github_url,
+        rank: userProfile.rank || 'Newcomer',
+        rating: userProfile.rating || 0,
+        stats: {
+          totalBets: userProfile.total_bets || 0,
+          winRate: userProfile.win_rate || 0,
+          totalWinnings: userProfile.total_winnings || '0',
+          activeProjects: profileData.stats.activeProjects,
+        },
+        liveStreams: profileData.liveStreams,
+        recentBets: profileData.recentBets,
+        projects: profileData.projects,
+        achievements: profileData.achievements,
+      }
+    : profileData;
 
   return (
     <>
@@ -244,10 +262,12 @@ const Profile: React.FC<ProfileProps> = ({
             <div className="flex items-center gap-6">
               {/* Profile Image with Edit Button */}
               <div className="relative group">
-                <img 
-                  src={displayProfile.avatar} 
-                  alt={displayProfile.username} 
-                  className="w-20 h-20 rounded-full border-4 border-black"
+                <Image
+                  src={displayProfile.avatar}
+                  alt={displayProfile.username}
+                  width={80}
+                  height={80}
+                  className="rounded-full border-4 border-black"
                 />
                 {authenticated && (
                   <button
@@ -258,7 +278,7 @@ const Profile: React.FC<ProfileProps> = ({
                   </button>
                 )}
               </div>
-              
+
               <div className="flex-1">
                 <div className="flex items-center gap-2">
                   {editingUsername ? (
@@ -266,13 +286,17 @@ const Profile: React.FC<ProfileProps> = ({
                       <input
                         type="text"
                         value={usernameInput}
-                        onChange={e => setUsernameInput(e.target.value)}
+                        onChange={(e) => setUsernameInput(e.target.value)}
                         className="px-2 py-1 border-2 border-black rounded-none text-lg font-bold bg-white text-plum"
                       />
                       <button
                         onClick={async () => {
                           if (!userProfile) return;
-                          await handleSaveProfile({ ...userProfile, username: usernameInput, wallet_address: userProfile.wallet_address || "" });
+                          await handleSaveProfile({
+                            ...userProfile,
+                            username: usernameInput,
+                            wallet_address: userProfile.wallet_address || "",
+                          });
                           setEditingUsername(false);
                         }}
                         className="ml-1 text-green-700 hover:text-green-900"
@@ -288,7 +312,9 @@ const Profile: React.FC<ProfileProps> = ({
                     </>
                   ) : (
                     <>
-                      <h1 className="text-3xl font-bold text-cream mb-2">{displayProfile.username}</h1>
+                      <h1 className="text-3xl font-bold text-cream mb-2">
+                        {displayProfile.username}
+                      </h1>
                       {authenticated && (
                         <button
                           onClick={() => {
@@ -307,18 +333,22 @@ const Profile: React.FC<ProfileProps> = ({
                 <div className="flex items-center gap-4 flex-wrap">
                   <div className="flex items-center gap-2 bg-butter text-black px-3 py-1 border-2 border-black">
                     <Wallet size={16} />
-                    <span className="text-sm hidden md:inline">{displayProfile.address}</span>
-                    <span className="text-sm md:hidden">{truncateAddress(displayProfile.address)}</span>
-                    <button 
+                    <span className="text-sm hidden md:inline">
+                      {displayProfile.address}
+                    </span>
+                    <span className="text-sm md:hidden">
+                      {truncateAddress(displayProfile.address)}
+                    </span>
+                    <button
                       onClick={copyAddress}
                       className="ml-2 hover:pink transition-colors p-1"
                     >
                       <Copy size={14} />
                     </button>
                   </div>
-                  
+
                   {displayProfile.githubUrl && (
-                    <a 
+                    <a
                       href={displayProfile.githubUrl}
                       target="_blank"
                       rel="noopener noreferrer"
@@ -336,13 +366,13 @@ const Profile: React.FC<ProfileProps> = ({
                       )}
                     </a>
                   )}
-                  
+
                   {copied && (
                     <span className="text-green-400 text-sm">Copied!</span>
                   )}
                 </div>
               </div>
-              
+
               <div className="text-right">
                 <div className="flex items-center gap-2 mb-2">
                   <Trophy size={20} className="text-gold" />
@@ -359,19 +389,27 @@ const Profile: React.FC<ProfileProps> = ({
           {/* Stats Grid */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
             <div className="bg-coral border-4 border-black p-4 text-center">
-              <div className="text-pink-600 text-2xl font-bold">{displayProfile.stats.totalBets}</div>
+              <div className="text-pink-600 text-2xl font-bold">
+                {displayProfile.stats.totalBets}
+              </div>
               <div className="text-cream text-sm">Total Bets</div>
             </div>
             <div className="bg-coral border-4 border-black p-4 text-center">
-              <div className="text-pink-600 text-2xl font-bold">{displayProfile.stats.winRate}%</div>
+              <div className="text-pink-600 text-2xl font-bold">
+                {displayProfile.stats.winRate}%
+              </div>
               <div className="text-cream text-sm">Win Rate</div>
             </div>
             <div className="bg-coral border-4 border-black p-4 text-center">
-              <div className="text-pink-600 text-2xl font-bold">{displayProfile.stats.totalWinnings}</div>
+              <div className="text-pink-600 text-2xl font-bold">
+                {displayProfile.stats.totalWinnings}
+              </div>
               <div className="text-cream text-sm">Total Winnings</div>
             </div>
             <div className="bg-coral border-4 border-black p-4 text-center">
-              <div className="text-pink-600 text-2xl font-bold">{displayProfile.stats.activeProjects}</div>
+              <div className="text-pink-600 text-2xl font-bold">
+                {displayProfile.stats.activeProjects}
+              </div>
               <div className="text-cream text-sm">Active Projects</div>
             </div>
           </div>
@@ -386,17 +424,28 @@ const Profile: React.FC<ProfileProps> = ({
               </h2>
               <div className="space-y-4">
                 {displayProfile.liveStreams.map((stream) => (
-                  <div key={stream.id} className="bg-cream border-2 border-black p-4">
+                  <div
+                    key={stream.id}
+                    className="bg-cream border-2 border-black p-4"
+                  >
                     <div className="flex gap-3">
-                      <img 
-                        src={DEFAULT_LOGO} 
+                      <Image
+                        src={DEFAULT_LOGO}
                         alt={stream.title}
-                        className="w-16 h-12 object-cover border border-black"
+                        width={64}
+                        height={48}
+                        className="object-cover border border-black"
                       />
                       <div className="flex-1">
                         <div className="flex justify-between items-start mb-2">
-                          <h3 className="font-bold text-plum text-sm">{stream.title}</h3>
-                          <span className={`px-2 py-1 text-xs border border-black ${getStatusColor(stream.status)}`}>
+                          <h3 className="font-bold text-plum text-sm">
+                            {stream.title}
+                          </h3>
+                          <span
+                            className={`px-2 py-1 text-xs border border-black ${getStatusColor(
+                              stream.status
+                            )}`}
+                          >
                             {stream.status}
                           </span>
                         </div>
@@ -428,14 +477,21 @@ const Profile: React.FC<ProfileProps> = ({
               </h2>
               <div className="space-y-3">
                 {displayProfile.recentBets.map((bet) => (
-                  <div key={bet.id} className="bg-cream border-2 border-black p-3 flex justify-between items-center">
+                  <div
+                    key={bet.id}
+                    className="bg-cream border-2 border-black p-3 flex justify-between items-center"
+                  >
                     <div>
                       <div className="font-bold text-plum">{bet.title}</div>
                       <div className="text-xs text-purple-700">{bet.date}</div>
                     </div>
                     <div className="text-right">
                       <div className="font-bold text-plum">{bet.amount}</div>
-                      <span className={`text-xs px-2 py-1 border border-black ${getBetStatusColor(bet.status)}`}>
+                      <span
+                        className={`text-xs px-2 py-1 border border-black ${getBetStatusColor(
+                          bet.status
+                        )}`}
+                      >
                         {bet.status}
                       </span>
                     </div>
@@ -453,14 +509,23 @@ const Profile: React.FC<ProfileProps> = ({
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {displayProfile.projects.map((project) => (
-                <div key={project.id} className="bg-cream border-2 border-black p-4">
+                <div
+                  key={project.id}
+                  className="bg-cream border-2 border-black p-4"
+                >
                   <div className="flex justify-between items-start mb-2">
                     <h3 className="font-bold text-plum">{project.title}</h3>
-                    <span className={`px-2 py-1 text-xs border-2 border-black ${getStatusColor(project.status)}`}>
+                    <span
+                      className={`px-2 py-1 text-xs border-2 border-black ${getStatusColor(
+                        project.status
+                      )}`}
+                    >
                       {project.status}
                     </span>
                   </div>
-                  <p className="text-sm text-purple-700 mb-2">{project.description}</p>
+                  <p className="text-sm text-purple-700 mb-2">
+                    {project.description}
+                  </p>
                   <div className="flex justify-between items-center text-xs">
                     <span className="bg-sky text-navy px-2 py-1 border border-black">
                       Volume: {project.volume}
@@ -474,7 +539,11 @@ const Profile: React.FC<ProfileProps> = ({
                   </div>
                   {project.result && (
                     <div className="mt-2">
-                      <span className={`px-2 py-1 text-xs border border-black ${getBetStatusColor(project.result)}`}>
+                      <span
+                        className={`px-2 py-1 text-xs border border-black ${getBetStatusColor(
+                          project.result
+                        )}`}
+                      >
                         {project.result}
                       </span>
                     </div>
@@ -494,10 +563,17 @@ const Profile: React.FC<ProfileProps> = ({
               {displayProfile.achievements.map((achievement) => {
                 const IconComponent = getIconComponent(achievement.icon);
                 return (
-                  <div key={achievement.id} className="bg-sage border-2 border-black p-4 text-center">
+                  <div
+                    key={achievement.id}
+                    className="bg-sage border-2 border-black p-4 text-center"
+                  >
                     <IconComponent size={32} className="mx-auto mb-2 text-black" />
-                    <div className="font-bold text-black">{achievement.title}</div>
-                    <div className="text-xs text-black">{achievement.description}</div>
+                    <div className="font-bold text-black">
+                      {achievement.title}
+                    </div>
+                    <div className="text-xs text-black">
+                      {achievement.description}
+                    </div>
                   </div>
                 );
               })}
@@ -529,4 +605,4 @@ const Profile: React.FC<ProfileProps> = ({
   );
 };
 
-export default Profile; 
+export default Profile;
